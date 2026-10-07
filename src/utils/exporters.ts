@@ -1,4 +1,5 @@
 import type { DesignToken, Theme, TokenDifference, TokenKind } from "../types/tokens";
+import { buildTokenIndex, resolveToken, TOKEN_KINDS } from "./references";
 
 export const TOKEN_LABELS: Record<TokenKind, string> = {
   color: "颜色",
@@ -9,11 +10,14 @@ export const TOKEN_LABELS: Record<TokenKind, string> = {
   motion: "动效时长",
 };
 
+/** 展平主题为 名称→有效值（别名按引用链解析到基础值） */
 export function flattenTheme(theme: Theme): Record<string, string> {
+  const index = buildTokenIndex(theme);
   const result: Record<string, string> = {};
-  (Object.keys(theme.tokens) as TokenKind[]).forEach((kind) => {
+  TOKEN_KINDS.forEach((kind) => {
     theme.tokens[kind].forEach((token) => {
-      result[token.name] = token.value;
+      const resolved = resolveToken(token, index);
+      result[token.name] = resolved.value || token.value;
     });
   });
   return result;
@@ -36,15 +40,16 @@ export function toSassVariables(theme: Theme): string {
 }
 
 export function toStyleDictionaryJson(theme: Theme): string {
+  const resolved = flattenTheme(theme);
   const tree: Record<string, unknown> = {};
-  (Object.keys(theme.tokens) as TokenKind[]).forEach((kind) => {
+  TOKEN_KINDS.forEach((kind) => {
     theme.tokens[kind].forEach((token) => {
       const path = token.name.split(".");
       let branch = tree;
       path.forEach((segment, index) => {
         if (index === path.length - 1) {
           branch[segment] = {
-            value: token.value,
+            value: resolved[token.name] ?? token.value,
             type: kind === "motion" ? "time" : kind === "fontSize" ? "dimension" : kind,
             comment: token.description,
           };
@@ -66,29 +71,6 @@ export function downloadText(filename: string, content: string, mime = "text/pla
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-export function parseImportedTheme(raw: string, fallback: Theme): Theme {
-  const parsed = JSON.parse(raw) as Partial<Theme> | Record<string, string>;
-  if ("tokens" in parsed && parsed.tokens) {
-    return {
-      id: `imported-${Date.now()}`,
-      name: parsed.name ?? "导入主题",
-      tokens: parsed.tokens as Theme["tokens"],
-    };
-  }
-
-  const imported = parsed as Record<string, string>;
-  const next: Theme = structuredClone(fallback);
-  next.id = `imported-${Date.now()}`;
-  next.name = "导入的令牌集";
-  (Object.keys(next.tokens) as TokenKind[]).forEach((kind) => {
-    next.tokens[kind] = next.tokens[kind].map((token) => ({
-      ...token,
-      value: token.name in imported ? imported[token.name] : token.value,
-    }));
-  });
-  return next;
 }
 
 export function diffThemes(before: Theme, after: Theme): TokenDifference[] {

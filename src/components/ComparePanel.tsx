@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { diffThemes } from "../utils/exporters";
+import { diffThemes, downloadText, toStyleDictionaryJson } from "../utils/exporters";
 import { useTokenStore } from "../stores/tokenStore";
+import type { Theme } from "../types/tokens";
 
 export default function ComparePanel() {
   const store = useTokenStore();
@@ -10,16 +11,32 @@ export default function ComparePanel() {
   const after = createMemo(() => afterId() === "current" ? store.activeTheme() : store.snapshots().find((item) => item.id === afterId())?.theme);
   const differences = createMemo(() => before() && after() ? diffThemes(before()!, after()!) : []);
 
+  const exportSnapshot = (theme: Theme) => {
+    // 历史发布按原快照导出：不按当前包重算，直接导出快照内的原始状态
+    downloadText(`${theme.id}.snapshot.tokens.json`, toStyleDictionaryJson(theme), "application/json");
+  };
+
   return (
     <div class="flex h-full min-h-0 flex-col gap-4">
       <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="flex flex-wrap items-end gap-4">
           <div>
             <p class="text-xs font-bold uppercase tracking-wider text-slate-400">基准快照</p>
-            <select class="mt-2 min-w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" value={beforeId()} onChange={(event) => setBeforeId(event.currentTarget.value)}>
-              <option value="">请选择快照</option>
-              <For each={store.snapshots()}>{(snapshot) => <option value={snapshot.id}>{snapshot.label} · {snapshot.createdAt}</option>}</For>
-            </select>
+            <div class="mt-2 flex items-center gap-2">
+              <select class="min-w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" value={beforeId()} onChange={(event) => setBeforeId(event.currentTarget.value)}>
+                <option value="">请选择快照</option>
+                <For each={store.snapshots()}>{(snapshot) => <option value={snapshot.id}>{snapshot.label} · {snapshot.createdAt}</option>}</For>
+              </select>
+              <Show when={before()}>
+                <button
+                  class="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  title="按历史发布时的原快照导出，不按当前令牌包重算"
+                  onClick={() => exportSnapshot(before()!)}
+                >
+                  导出原快照
+                </button>
+              </Show>
+            </div>
           </div>
           <div class="pb-3 text-xl text-slate-300">→</div>
           <div>
