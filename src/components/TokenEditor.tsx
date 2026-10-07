@@ -1,11 +1,10 @@
 import { For, Show, createMemo } from "solid-js";
 import { Tabs } from "@kobalte/core/tabs";
 import type { DesignToken, TokenKind } from "../types/tokens";
+import { TOKEN_KINDS } from "../types/tokens";
 import { TOKEN_LABELS } from "../utils/exporters";
 import { contrastGrade, contrastRatio } from "../utils/color";
 import { useTokenStore } from "../stores/tokenStore";
-
-const kinds: TokenKind[] = ["color", "fontSize", "spacing", "radius", "shadow", "motion"];
 
 function TokenRow(props: { token: DesignToken; kind: TokenKind }) {
   const store = useTokenStore();
@@ -25,6 +24,33 @@ function TokenRow(props: { token: DesignToken; kind: TokenKind }) {
           onInput={(event) => store.updateToken(props.kind, props.token.id, { name: event.currentTarget.value })}
         />
         <p class="mt-1 line-clamp-1 px-2 text-[11px] text-slate-400">{props.token.description}</p>
+        <div class="mt-1 flex flex-wrap items-center gap-1 px-2">
+          <Show when={props.token.ref && !props.token.overridden}>
+            <span class="rounded-full bg-sky-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-sky-700">
+              别名 → {props.token.ref}
+            </span>
+          </Show>
+          <Show when={props.token.overridden}>
+            <span class="rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">显式覆盖</span>
+          </Show>
+          <Show when={props.token.pendingReview}>
+            <span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">待复核</span>
+            <button
+              class="text-[10px] font-bold text-emerald-700 hover:underline"
+              title="确认保留当前覆盖值"
+              onClick={() => store.acknowledgeToken(props.kind, props.token.id)}
+            >
+              确认
+            </button>
+            <button
+              class="text-[10px] font-bold text-slate-500 hover:underline"
+              title="放弃覆盖，恢复为引用重算"
+              onClick={() => store.revertTokenOverride(props.kind, props.token.id)}
+            >
+              恢复引用
+            </button>
+          </Show>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <Show when={isColor()}>
@@ -38,6 +64,7 @@ function TokenRow(props: { token: DesignToken; kind: TokenKind }) {
         <input
           class="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 font-mono text-xs outline-none focus:border-blue-400"
           value={props.token.value}
+          placeholder="值或 {token.path}"
           onInput={(event) => store.updateToken(props.kind, props.token.id, { value: event.currentTarget.value })}
         />
       </div>
@@ -71,7 +98,7 @@ export default function TokenEditor() {
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div>
           <h2 class="text-sm font-bold text-slate-800">令牌编辑器</h2>
-          <p class="text-xs text-slate-400">修改会实时写入当前主题</p>
+          <p class="text-xs text-slate-400">修改会实时写入当前主题，值可填 {"{token.path}"} 建立别名</p>
         </div>
         <button
           class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
@@ -86,7 +113,7 @@ export default function TokenEditor() {
 
       <Tabs defaultValue="color" class="flex min-h-0 flex-1 flex-col">
         <Tabs.List class="flex flex-wrap gap-1 border-b border-slate-200 bg-slate-50/70 px-3 py-2">
-          <For each={kinds}>
+          <For each={TOKEN_KINDS}>
             {(kind) => (
               <Tabs.Trigger
                 value={kind}
@@ -97,7 +124,7 @@ export default function TokenEditor() {
             )}
           </For>
         </Tabs.List>
-        <For each={kinds}>
+        <For each={TOKEN_KINDS}>
           {(kind) => (
             <Tabs.Content value={kind} class="scroll-area min-h-0 flex-1 overflow-y-auto">
               <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2">

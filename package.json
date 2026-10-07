@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "tokens:build": "node scripts/build-tokens.mjs"
+    "tokens:build": "node scripts/build-tokens.mjs",
+    "verify": "pnpm dlx tsx scripts/verify-revisions.ts && NODE_OPTIONS='--conditions=browser' pnpm dlx tsx scripts/verify-store.ts"
   },
   "dependencies": {
     "@kobalte/core": "^0.13.11",
